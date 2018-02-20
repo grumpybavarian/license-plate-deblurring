@@ -1,0 +1,5 @@
+scipy==0.18.1
+numpy==1.12.1
+opencv-python==3.3.0.10
+tensorflow-gpu==1.0.0
+
