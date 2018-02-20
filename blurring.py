@@ -226,4 +226,12 @@ def blur_data():
                 imsave(train_filename, train)
 
 if __name__ == '__main__':
+    os.mkdir('./Data/Cropped/')
+    os.mkdir('./Data/Cropped/Blurred')
+    os.mkdir('./Data/Cropped/Blurred/Training')
+    os.mkdir('./Data/Cropped/Blurred/Validation')
+    os.mkdir('./Data/Cropped/Clear')
+    os.mkdir('./Data/Cropped/Clear/Training')
+    os.mkdir('./Data/Cropped/Clear/Validation')
+    
     blur_data()
