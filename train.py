@@ -47,6 +47,9 @@ class Model(object):
         self.target_image = tf.placeholder(tf.float32, shape=(None, None, None, 1))
         self.loss = tf.nn.l2_loss(tf.subtract(self.target_image, self.predicted_image))
 
+        self.summary_image = tf.placeholder(tf.float32, shape=(None, None, None, 1))
+        self.predicted_images_summary = tf.summary.image("img", self.summary_image)
+
         self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(self.loss, global_step=self.global_step)
 
         config = tf.ConfigProto()
@@ -96,7 +99,7 @@ class Model(object):
         np.random.shuffle(all_data_files)
         all_validation_files = np.array(list(zip(validation_data_files, valdation_target_data_files)))
 
-        batch_size = 100
+        batch_size = 5
         validation_batch_size = 1
 
         num_batches = int(np.ceil(all_data_files.shape[0] * 1. / batch_size))
@@ -104,7 +107,7 @@ class Model(object):
         all_data_files = np.array_split(all_data_files, num_batches)
         all_validation_files = np.array_split(all_validation_files, num_validation_batches)
 
-        num_epochs = 10000
+        num_epochs = 2
 
         if restore_path is None:
             print("initialized variables")
@@ -113,11 +116,14 @@ class Model(object):
             print("model restored")
             self.saver.restore(self.sess, restore_path)
 
+        step = 0
         for epoch in range(num_epochs):
             np.random.shuffle(all_data_files)
-            # self.predict()
+            predicted_images = self.predict()
+            predicted_images = self.sess.run(self.predicted_images_summary, feed_dict={self.summary_image: predicted_images})
+            self.summary_writer.add_summary(predicted_images, step)
             for batch_number, batch in enumerate(all_data_files):
-                if batch_number % (int(num_batches / 1)) == 0 and epoch + batch_number != 0:
+                if batch_number % int(num_batches / 2) == 0 and epoch + batch_number != 0:
                     validation_loss = 0
 
                     for validation_batch_number, validation_batch in enumerate(all_validation_files):
@@ -156,19 +162,20 @@ class Model(object):
                                                        feed_dict={self.loss: validation_loss})
                     self.summary_writer.add_summary(validation_summary, step)
                     self.summary_writer.flush()
+                if batch_number == 0 and epoch > 0:
                     datestring = datetime.strftime(datetime.now(), '%m-%d_%H%M%S')
                     save_path = "./models/" + datestring + ".ckpt"
                     self.saver.save(self.sess, save_path)
 
                 duration = time.time()
-                data = np.empty((batch.shape[0], 40, 60, 1), dtype=np.float32)
-                target_data = np.empty((batch.shape[0], 40, 60, 1), dtype=np.float32)
+                data = np.empty((batch.shape[0], 128, 264, 1), dtype=np.float32)
+                target_data = np.empty((batch.shape[0], 128, 264, 1), dtype=np.float32)
 
                 for i, f in enumerate(batch):
                     train_img = imread(f[0]) * 1. / 255
                     target_img = imread(f[1]) * 1. / 255
-                    data[i] = np.reshape(train_img, newshape=(40, 60, 1))
-                    target_data[i] = np.reshape(target_img, newshape=(40, 60, 1))
+                    data[i] = np.reshape(train_img, newshape=(128, 264, 1))
+                    target_data[i] = np.reshape(target_img, newshape=(128, 264, 1))
 
                 summaries, _, step, loss = self.sess.run(
                     [self.train_summaries, self.optimizer, self.global_step, self.loss],
@@ -177,14 +184,13 @@ class Model(object):
 
                 self.summary_writer.add_summary(summaries, step)
 
-                print("Epoch {} of {}: Batch {} of {}: Loss: {:.5f}, Duration: {:.2f}sec".format(
-                    epoch, num_epochs, batch_number, num_batches, loss, duration), end="\r")
+                print("Epoch {} of {}: Batch {} of {}: Loss: {:.5f}, Duration: {:.2f}sec\r".format(epoch, num_epochs, batch_number, num_batches, loss, duration))
 
     def predict(self, restore_path=None, test_data_dir="./Data/Test_Images/",
                 prediction_dir="./Data/Predictions/"):
         if restore_path is not None:
             self.saver.restore(self.sess, restore_path)
-
+        summaries = []
         for f in os.listdir(test_data_dir):
             if f.endswith(".jpg") or f.endswith(".png"):
                 img = np.array([imread(os.path.join(test_data_dir, f)) * 1. / 255])
@@ -195,6 +201,11 @@ class Model(object):
                 prediction = np.vstack([img[0], prediction[0]]) * 255.
                 prediction = np.reshape(prediction, newshape=(prediction.shape[0], prediction.shape[1]))
                 imsave("./Data/Predictions/Test/" + f, prediction)
+                summaries.append(prediction)
+        summaries = np.array(summaries)
+        summaries = np.expand_dims(summaries, axis=3)
+        
+        return summaries
 
 
 if __name__ == '__main__':

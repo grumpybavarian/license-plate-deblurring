@@ -122,24 +122,6 @@ def cut_image_from_center(img, shape):
     new_img = img[y_translation:y_translation + shape[0], x_translation:x_translation + shape[1]]
     return new_img
 
-
-def motion_blur2(img):
-    k = np.random.randint(10, 20)
-    kernel = np.zeros((k, k))
-    point = (int(np.random.normal(0.5 * k, 1)), int(np.random.normal(0.5 * k, 1)))
-    num_steps = k
-    x = np.random.randint(-1, 2)
-    y = np.random.randint(-1, 2)
-    for _ in range(num_steps):
-        kernel[point] += 1.
-        if np.random.uniform() < 0.25:
-            x = np.random.randint(-1, 2)
-            y = np.random.randint(-1, 2)
-        point = (min(max(0, point[0] + x), k - 1), min(max(0, point[1] + y), k - 1))
-    kernel = kernel * 1. / np.sum(kernel)
-    blurred = cv2.filter2D(img, -1, kernel, borderType = cv2.BORDER_CONSTANT)
-    return blurred
-
 def blur_image(img):
     original_shape = img.shape
     if img.shape[1] > 150:
@@ -150,30 +132,32 @@ def blur_image(img):
         kernel_size = np.random.randint(3, 11)
     else:
         kernel_size = np.random.randint(2, 6)
-    angle = np.random.randint(0, 181)
+    kernel_size = np.random.randint(12, 31)
+    angle = np.random.randint(0, 20)
 
     img = ndimage.rotate(img, angle, mode='nearest')
 
     kernel = np.zeros((kernel_size, kernel_size))
-    kernel[int(0.5 * kernel_size), :] = np.ones(kernel_size)
+    kernel[int(0.5 * kernel_size), :] = 1
     kernel = kernel * 1. / np.sum(kernel)
     blurred = cv2.filter2D(img, -1, kernel)
 
     blurred = ndimage.rotate(blurred, -angle)
     blurred = cut_image_from_center(blurred, original_shape)
 	
-    blurred = gaussian_blur(blurred)
+    # blurred = gaussian_blur(blurred)
     return blurred
 
 
-def crop(target_img, train_img, crop_size_target=40, crop_size_train=40):
-    if target_img.shape[0] < 40 or target_img.shape[1] < 60:
+def crop(target_img, train_img, crop_size_target=100, crop_size_train=100):
+    return [(target_img, train_img)]
+    if target_img.shape[0] < 40  or target_img.shape[1] < 60:
         target_img = pad_image(target_img, max_dimensions=(max(crop_size_target, target_img.shape[0]),max(int(1.5*crop_size_target), target_img.shape[1]),3))
         train_img = pad_image(train_img, max_dimensions=(max(crop_size_target, train_img.shape[0]),max(int(1.5 * crop_size_target), train_img.shape[1]),3))
     x = np.random.randint(0, target_img.shape[0] - crop_size_target + 1)
-    y = np.random.randint(0, target_img.shape[1] - int(1.5 * crop_size_target) + 1)
-    return [(target_img[x:x+crop_size_target, y:y+int(1.5*crop_size_target)],
-             train_img[x:x+crop_size_target, y:y+int(1.5*crop_size_target)])]
+    y = np.random.randint(0, target_img.shape[1] - crop_size_target + 1)
+    return [(target_img[x:x+crop_size_target, y:y+crop_size_target],
+             train_img[x:x+crop_size_target, y:y+crop_size_target])]
     images = []
     margin = int(0.5 * (crop_size_train - crop_size_target))
     train_img = pad_image(train_img,
@@ -208,30 +192,29 @@ def blur_data():
         dst_path_train2 = os.path.join(dst_path_train, f[:6])
         img = imread(os.path.join(train_data_path, f))
 
-        for j in range(1, 5):
+        for j in range(1, 20):
             initial_rotate = np.random.randint(-5, 6)
-            r = np.random.uniform(1, 1.5)
-            img_rot = cv2.resize(img, (int(img.shape[1] / r), int(img.shape[0] / r)))
-            img_rot = ndimage.rotate(img_rot, initial_rotate)
-            blurred = blur_image(img_rot)
-            images = crop(img_rot, blurred)
+            blurred = blur_image(img)
+            images = crop(img, blurred)
             for pos, (target, train) in enumerate(images):
                 target_filename = f[:-4] + "_pos{:03d}_i{:01d}".format(pos, j) + f[-4:]
                 imsave(os.path.join(dst_path_targets2, target_filename), target)
                 train_filename = f[:-4] + "_pos{:03d}".format(pos) + "_i{:01d}".format(j) + f[-4:]
-                if "_35" in f:
+                if np.random.rand() < 0.2:
                     train_filename = os.path.join(dst_path_train, "Validation", f[:6], train_filename)
                 else:
                     train_filename = os.path.join(dst_path_train, "Training", f[:6], train_filename)
                 imsave(train_filename, train)
 
+ 
 if __name__ == '__main__':
-    os.mkdir('./Data/Cropped/')
-    os.mkdir('./Data/Cropped/Blurred')
-    os.mkdir('./Data/Cropped/Blurred/Training')
-    os.mkdir('./Data/Cropped/Blurred/Validation')
-    os.mkdir('./Data/Cropped/Clear')
-    os.mkdir('./Data/Cropped/Clear/Training')
-    os.mkdir('./Data/Cropped/Clear/Validation')
+    print(np.random.randint(0, 10))
+    os.system('mkdir ./Data/Cropped/')
+    os.system('mkdir ./Data/Cropped/Blurred')
+    os.system('mkdir ./Data/Cropped/Blurred/Training')
+    os.system('mkdir ./Data/Cropped/Blurred/Validation')
+    os.system('mkdir ./Data/Cropped/Clear')
+    os.system('mkdir ./Data/Cropped/Clear/Training')
+    os.system('mkdir ./Data/Cropped/Clear/Validation')
     
     blur_data()
