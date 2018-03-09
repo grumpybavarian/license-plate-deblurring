@@ -150,7 +150,6 @@ def blur_image(img):
 
 
 def crop(target_img, train_img, crop_size_target=100, crop_size_train=100):
-    return [(target_img, train_img)]
     if target_img.shape[0] < 40  or target_img.shape[1] < 60:
         target_img = pad_image(target_img, max_dimensions=(max(crop_size_target, target_img.shape[0]),max(int(1.5*crop_size_target), target_img.shape[1]),3))
         train_img = pad_image(train_img, max_dimensions=(max(crop_size_target, train_img.shape[0]),max(int(1.5 * crop_size_target), train_img.shape[1]),3))
@@ -158,22 +157,6 @@ def crop(target_img, train_img, crop_size_target=100, crop_size_train=100):
     y = np.random.randint(0, target_img.shape[1] - crop_size_target + 1)
     return [(target_img[x:x+crop_size_target, y:y+crop_size_target],
              train_img[x:x+crop_size_target, y:y+crop_size_target])]
-    images = []
-    margin = int(0.5 * (crop_size_train - crop_size_target))
-    train_img = pad_image(train_img,
-                          max_dimensions=(train_img.shape[0] + 2 * margin, train_img.shape[1] + 2 * margin, 3))
-    for i in range(0, target_img.shape[0], int(crop_size_target)):
-        for j in range(0, target_img.shape[1], int(crop_size_target)):
-            cropped_target_img = np.zeros((crop_size_target, crop_size_target, 3))
-            tmp = target_img[i:i + crop_size_target, j:j + crop_size_target]
-            cropped_target_img[:tmp.shape[0], :tmp.shape[1]] = tmp
-            tmp = train_img[i: i + crop_size_train, j:j + crop_size_train]
-            cropped_train_img = np.zeros((crop_size_train, crop_size_train, 3))
-            cropped_train_img[:tmp.shape[0], :tmp.shape[1], :] = tmp
-            images.append((cropped_target_img, cropped_train_img))
-            assert(cropped_train_img.shape == (crop_size_train, crop_size_train, 3))
-    return images
-
 
 def blur_data():
     train_data_path = "./Data/Training_Images/"

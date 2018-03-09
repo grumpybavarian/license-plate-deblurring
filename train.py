@@ -25,7 +25,7 @@ class Model(object):
     def __init__(self, run_name=None):
         layers = 25
         kernel_sizes = [5] * layers
-        channel_sizes = [256] * layers
+        channel_sizes = [128] * layers
 
         self.layers = min(len(kernel_sizes), len(channel_sizes))
 
@@ -45,7 +45,7 @@ class Model(object):
         self.predicted_image = tf.add(self.predicted_image, self.input)
 
         self.target_image = tf.placeholder(tf.float32, shape=(None, None, None, 1))
-        self.loss = tf.nn.l2_loss(tf.subtract(self.target_image, self.predicted_image))
+        self.loss = tf.nn.l2_loss(tf.reduce_mean(tf.subtract(self.target_image, self.predicted_image), axis=0))
 
         self.summary_image = tf.placeholder(tf.float32, shape=(None, None, None, 1))
         self.predicted_images_summary = tf.summary.image("img", self.summary_image)
@@ -99,15 +99,15 @@ class Model(object):
         np.random.shuffle(all_data_files)
         all_validation_files = np.array(list(zip(validation_data_files, valdation_target_data_files)))
 
-        batch_size = 5
-        validation_batch_size = 1
+        batch_size = 20
+        validation_batch_size = batch_size
 
         num_batches = int(np.ceil(all_data_files.shape[0] * 1. / batch_size))
         num_validation_batches = int(np.ceil(all_validation_files.shape[0] * 1. / validation_batch_size))
         all_data_files = np.array_split(all_data_files, num_batches)
         all_validation_files = np.array_split(all_validation_files, num_validation_batches)
 
-        num_epochs = 2
+        num_epochs = 2000
 
         if restore_path is None:
             print("initialized variables")
@@ -144,19 +144,15 @@ class Model(object):
                             validation_data.append(validation_img)
                             validation_target_data.append(target_validation_img)
 
-                        # img = self.sess.run(self.predicted_image, feed_dict={self.input: validation_data})
-                        # imsave(os.path.join("./Data/Predictions/Validation/", f[0][-22:]), img[0])
                         img, val_loss = self.sess.run([self.predicted_image, self.loss],
                                                       feed_dict={self.input: np.array(validation_data),
                                                                  self.target_image: np.array(validation_target_data),
                                                                  self.dropout: 1.0})
                         img = img.clip(min=0, max=1)
-                        # imsave(os.path.join("./Data/Predictions/Validation/", f[0][-22:]),
-                        #       255 * np.vstack([validation_data[0], img[0], validation_target_data[0]]))
                         validation_loss += val_loss
 
                     validation_loss /= num_validation_batches
-                    print("Validation Loss:", validation_loss, " " * 50)
+                    print("Validation Loss: {}".format(validation_loss))
 
                     validation_summary = self.sess.run(self.validation_summaries,
                                                        feed_dict={self.loss: validation_loss})
@@ -168,23 +164,24 @@ class Model(object):
                     self.saver.save(self.sess, save_path)
 
                 duration = time.time()
-                data = np.empty((batch.shape[0], 128, 264, 1), dtype=np.float32)
-                target_data = np.empty((batch.shape[0], 128, 264, 1), dtype=np.float32)
+                data = np.empty((batch.shape[0], 100, 100, 1), dtype=np.float32)
+                target_data = np.empty((batch.shape[0], 100, 100, 1), dtype=np.float32)
 
+                train_loss = 0
                 for i, f in enumerate(batch):
                     train_img = imread(f[0]) * 1. / 255
                     target_img = imread(f[1]) * 1. / 255
-                    data[i] = np.reshape(train_img, newshape=(128, 264, 1))
-                    target_data[i] = np.reshape(target_img, newshape=(128, 264, 1))
+                    data[i] = np.reshape(train_img, newshape=(100, 100, 1))
+                    target_data[i] = np.reshape(target_img, newshape=(100, 100, 1))
 
                 summaries, _, step, loss = self.sess.run(
                     [self.train_summaries, self.optimizer, self.global_step, self.loss],
                     feed_dict={self.input: data, self.target_image: target_data, self.dropout: 0.8})
                 duration = time.time() - duration
 
-                self.summary_writer.add_summary(summaries, step)
+                self.summary_writer.add_summary(summaries, step)                
 
-                print("Epoch {} of {}: Batch {} of {}: Loss: {:.5f}, Duration: {:.2f}sec\r".format(epoch, num_epochs, batch_number, num_batches, loss, duration))
+                print("Epoch {} of {}: Batch {} of {}: Loss: {:.5f}, Duration: {:.2f}sec".format(epoch, num_epochs, batch_number, num_batches, loss, duration))
 
     def predict(self, restore_path=None, test_data_dir="./Data/Test_Images/",
                 prediction_dir="./Data/Predictions/"):
@@ -204,7 +201,6 @@ class Model(object):
                 summaries.append(prediction)
         summaries = np.array(summaries)
         summaries = np.expand_dims(summaries, axis=3)
-        
         return summaries
 
 
